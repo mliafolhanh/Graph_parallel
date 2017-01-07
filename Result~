@@ -1,0 +1,9 @@
+Dijkstra:
+NumberProcess     TimeReading     Totaltime       TimeCommunication	TimeRunning
+1                  330.365         230.58          0.552 
+2                  160.76          66.267          42.578
+4		   133.478 	   39.469	   26.747
+8                  274.319         76.633	   67.595
+16	           430.34	   1303.937527	   1297.775776
+
+
