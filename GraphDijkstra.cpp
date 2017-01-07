@@ -16,10 +16,12 @@ struct dis{
 void Dijkstra(int worldRank, int n, int s, dis *& distant, bool *&boo, int startRow,
                int numberRow, int ** cost, double *& finalResult, double & communacationTime)
 {
-    //printf("costt[0][1] = %d\n ", cost[0][1]);
     dis minDist;
+    //printf("costt[0][1] = %d\n ", cost[0][1]);
     for (int k = 0; k < n; k++)
     {
+        if (k % 1000 == 0)
+            printf("finish vertex: %d %d\n", worldRank, k);
         //printf("check dis[5]: %f %d\n", distant[5].val, distant[5].index);
        // MPI_Barrier(MPI_COMM_WORLD);
         minDist.val = oo;
@@ -56,12 +58,22 @@ void Dijkstra(int worldRank, int n, int s, dis *& distant, bool *&boo, int start
     }
 }
 
-void printResult(double * &distant, int n)
+void printResult(double * &distant, int n, double averageTime, double communicationTime, int worldSize)
 {
-    FILE * f = fopen("outputDijkstra.out","w");
+    ostringstream convert;
+    convert << worldSize;
+    string tam = "resultOfNumberProcess" + convert.str() + ".out";
+    const char * fileName1 = tam.c_str();
+    tam = "resultTimeOfProcess" + convert.str() + ".out";
+    const char * fileName2 = tam.c_str();
+    FILE * f1 = fopen(fileName1,"w");
+    FILE * f2 = fopen(fileName2,"w");
     for (int i = 0; i < n; i++)
-        fprintf(f, "%d %f\n", i, distant[i]);
-    fclose(f);
+        fprintf(f1, "%d %f\n", i, distant[i]);
+    fprintf(f2, "totaltime: %f\n", averageTime);
+    fprintf(f2, "commnunacationTime: %f\n", communicationTime);
+    fclose(f1);
+    fclose(f2);
 
 }
 
@@ -89,7 +101,7 @@ int main(int argc, char ** argv)
     if (worldRank == 0)
     {
         convert << worldRank;
-        tam = "partFileDijkstra" + convert.str() + ".inp";
+        tam = "partFileDijsktraP" + convert.str() + ".inp";
         fileName = tam.c_str();
         f = fopen(fileName, "r");
         fscanf(f, "%d %d", &n, &s);
@@ -118,7 +130,7 @@ int main(int argc, char ** argv)
         {
             ostringstream convert;
             convert << i;
-            tam = "partFileDijkstra" + convert.str() + ".inp";
+            tam = "partFileDijsktraP" + convert.str() + ".inp";
             fileName = tam.c_str();
             f = fopen(fileName, "r");
         }
@@ -141,6 +153,7 @@ int main(int argc, char ** argv)
         }
         fclose(f);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     if (worldRank == 0)
     {
         timeReading += MPI_Wtime();
@@ -172,15 +185,15 @@ int main(int argc, char ** argv)
         totalTime += MPI_Wtime();
         averageTime += totalTime;
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     if (worldRank == 0)
     {
-
-        printResult(finalResult, n);
-        printf("totaltime: %f\n", averageTime/1);
-        printf("commnunacationTime: %f\n", communicationTime/1);
+        printResult(finalResult, n, averageTime, communicationTime, worldSize);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     free(distant);
     free(boo);
+    MPI_Finalize();
     //printf("costs[0][1] = %d\n", adjNode[0][1]);
 
 }

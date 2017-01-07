@@ -19,6 +19,8 @@ void Prim(int worldRank, int n, dis *& distant, bool *&boo, int startRow, int nu
     //printf("costt[0][1] = %d\n ", cost[0][1]);
     for (int k = 0; k < n; k++)
     {
+        if (k % 1000 == 0)
+            printf("vertex: %d %d\n", worldRank, k);
         //printf("check dis[5]: %f %d\n", distant[5].val, distant[5].index);
         dis minDist;
         minDist.val = oo;
@@ -37,7 +39,7 @@ void Prim(int worldRank, int n, dis *& distant, bool *&boo, int startRow, int nu
         int resultIndex = result.indexAndParent / n;
         int resultParent = result.indexAndParent % n;
         totalResult = totalResult + result.val;
-        printf("%d min: %d %d %f %d\n", worldRank, k, resultIndex, result.val, resultParent);
+        //printf("%d min: %d %d %f %d\n", worldRank, k, resultIndex, result.val, resultParent);
         if (worldRank == 0)
         {
             if (k != 0)
@@ -53,7 +55,7 @@ void Prim(int worldRank, int n, dis *& distant, bool *&boo, int startRow, int nu
             vertex = distant[i].indexAndParent / n;
             if (distant[i].val > cost[i][resultIndex])
             {
-                printf("check: %d %d %f cost[%d][%d] = %d\n",worldRank, vertex, distant[i].val, i, resultIndex, cost[i][resultIndex]);
+                //printf("check: %d %d %f cost[%d][%d] = %d\n",worldRank, vertex, distant[i].val, i, resultIndex, cost[i][resultIndex]);
                 distant[i].val = cost[i][resultIndex];
                 distant[i].indexAndParent = vertex * n + resultIndex;
             }
@@ -65,14 +67,25 @@ void Prim(int worldRank, int n, dis *& distant, bool *&boo, int startRow, int nu
     }
 }
 
-void printResult(double result, int *& resultEdgeA, int *& resultEdgeB , float *& resultEdgeC, int n)
+void printResult(double result, int *& resultEdgeA, int *& resultEdgeB ,
+                 float *& resultEdgeC, int n, int worldSize, double averageTime, double communicationTime)
 {
-    FILE * f = fopen("outputPrim.out","w");
-    fprintf(f, "The sum: %f\n", result);
-    fprintf(f, "The list edges: \n");
+    ostringstream convert;
+    convert << worldSize;
+    string tam = "resultPrimOfNumberProcess" + convert.str() + ".out";
+    const char * fileName1 = tam.c_str();
+    tam = "resultPrimTimeOfProcess" + convert.str() + ".out";
+    const char * fileName2 = tam.c_str();
+    FILE * f1 = fopen(fileName1,"w");
+    FILE * f2 = fopen(fileName2,"w");
+    fprintf(f1, "The sum: %f\n", result);
+    fprintf(f1, "The list edges: \n");
     for (int i = 0; i < n - 1; i++)
-        fprintf(f, "%d %d %f\n", resultEdgeA[i], resultEdgeB[i], resultEdgeC[i]);
-    fclose(f);
+        fprintf(f1, "%d %d %f\n", resultEdgeA[i], resultEdgeB[i], resultEdgeC[i]);
+    fprintf(f2, "totaltime: %f\n", averageTime);
+    fprintf(f2, "commnunacationTime: %f\n", communicationTime);
+    fclose(f1);
+    fclose(f2);
 
 }
 
@@ -96,14 +109,17 @@ int main(int argc, char ** argv)
     bool * boo;
     double * finalResult;
     int * parent;
+    double timeReading = -MPI_Wtime();
     if (worldRank == 0)
     {
         convert << worldRank;
-        tam = "smallPartFileDijkstra" + convert.str() + ".inp";
+        tam = "partFileDijsktraP" + convert.str() + ".inp";
         //cout << tam << endl;
         fileName = tam.c_str();
         f = fopen(fileName, "r");
         fscanf(f, "%d", &n);
+        int s;
+        fscanf(f, "%d", &s);
         finalResult = new double[n];
     }
    // cout << " ok " << endl;
@@ -127,7 +143,7 @@ int main(int argc, char ** argv)
         {
             ostringstream convert;
             convert << i;
-            tam = "smallPartFileDijkstra" + convert.str() + ".inp";
+            tam = "partFileDijsktraP" + convert.str() + ".inp";
             fileName = tam.c_str();
             f = fopen(fileName, "r");
         }
@@ -157,6 +173,12 @@ int main(int argc, char ** argv)
     int * resultEdgeB;
     float * resultEdgeC;
     double totalResult = 0.0;
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (worldRank == 0)
+    {
+        timeReading += MPI_Wtime();
+        printf("time reading: %f\n", timeReading);
+    }
     for (int times = 0; times < 1; times++)
     {
         double totalTime = 0.0;
@@ -187,10 +209,22 @@ int main(int argc, char ** argv)
     }
     if (worldRank == 0)
     {
-        printResult(totalResult, resultEdgeA, resultEdgeB, resultEdgeC, n);
-        printf("total time: %f\n", averageTime/1);
-        printf("communcation time: %f\n", commnucationTime/1);
+        printResult(totalResult, resultEdgeA, resultEdgeB, resultEdgeC, n, worldSize, averageTime, commnucationTime);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
+    free(distant);
+    free(boo);
+    for (int i = 0; i < numberRow; i++)
+        free(adjNode[i]);
+    free(adjNode);
+    if (worldRank == 0)
+    {
+        free(resultEdgeA);
+        free(resultEdgeB);
+        free(resultEdgeC);
+    }
+
+    MPI_Finalize();
     //printf("costs[0][1] = %d\n", adjNode[0][1]);
 
 }

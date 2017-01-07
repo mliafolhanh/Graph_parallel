@@ -48,6 +48,8 @@ void BFS(int worldRank, int worldSize, vector<int> *& adjNode, int numberRow, in
     {
         for (int k = 0; k < n; k++)
         {
+            if (k % 1000 == 0)
+                printf("vertex: %d\n", k);
             if (!isVisited[k])
             {
                 parent[k] = -1;
@@ -146,14 +148,24 @@ void BFS(int worldRank, int worldSize, vector<int> *& adjNode, int numberRow, in
     }
 }
 
-void printResult(int *& parent, int *& rankN, int n)
+void printResult(int *& parent, int *& rankN, int n, int worldSize, double averageTime, double communicationTime)
 {
-    FILE * g = fopen("result.out", "w");
+    ostringstream convert;
+    convert << worldSize;
+    string tam = "resultBFSOfNumberProcess" + convert.str() + ".out";
+    const char * fileName1 = tam.c_str();
+    tam = "resultBFSTimeOfProcess" + convert.str() + ".out";
+    const char * fileName2 = tam.c_str();
+    FILE * f1 = fopen(fileName1,"w");
+    FILE * f2 = fopen(fileName2,"w");
     for (int i = 0; i < n; i++)
     {
-        fprintf(g,"%d %d\n", i, rankN[i]);
-    }
-    fclose(g);
+        fprintf(f1,"%d %d %d\n", i, rankN[i], parent[i]);
+    };
+    fprintf(f2, "totaltime: %f\n", averageTime);
+    fprintf(f2, "commnunacationTime: %f\n", communicationTime);
+    fclose(f1);
+    fclose(f2);
 }
 
 
@@ -173,11 +185,12 @@ int main(int argc, char ** argv)
     const char * fileName;
     string tam;
     FILE *f = NULL;
+    double timeReading = -MPI_Wtime();
     int n;
     if (worldRank == 0)
     {
         convert << worldRank;
-        tam = "smallPartFile" + convert.str() + ".inp";
+        tam = "partFileBFS" + convert.str() + ".inp";
         fileName = tam.c_str();
         f = fopen(fileName, "r");
         fscanf(f, "%d", &n);
@@ -190,6 +203,8 @@ int main(int argc, char ** argv)
     if (worldRank == worldSize - 1)
         numberRow += n % numberFile;
     adjNode = new vector<int>[numberRow];
+    for (int i = 0; i < numberRow; i++)
+        adjNode[i].clear();
     int rowNow = 0;
     for (int i = startFile; i <= finishFile; i++)
     {
@@ -197,7 +212,7 @@ int main(int argc, char ** argv)
         {
             ostringstream convert;
             convert << i;
-            tam = "smallPartFile" + convert.str() + ".inp";
+            tam = "partFileBFS" + convert.str() + ".inp";
             fileName = tam.c_str();
             f = fopen(fileName, "r");
         }
@@ -235,8 +250,12 @@ int main(int argc, char ** argv)
     int * rankN;
     double averageTime = 0;
     double commnucationTime = 0;
+    MPI_Barrier(MPI_COMM_WORLD);
     if (worldRank == 0)
     {
+
+        timeReading += MPI_Wtime();
+        printf("time reading: %f\n", timeReading);
         parent  = new int[n];
         rankN = new int[n];
     }
@@ -255,20 +274,23 @@ int main(int argc, char ** argv)
             averageTime += totalTime;
         }
     }
-
+    if (worldRank == 0)
+        printf("ok\n");
     free(isVisited);
+    MPI_Barrier(MPI_COMM_WORLD);
     if (worldRank == 0)
     {
-        printResult(parent, rankN, n);
-        cout <<"time = " << averageTime/1 << endl;
-        cout << "commnucation time = "<< commnucationTime << endl;
+        printResult(parent, rankN, n, worldSize, averageTime, commnucationTime);
         free(parent);
         free(rankN);
     }
     else
     {
-        free(adjNode);
-        free(isVisited);
+        for (int i = 0; i < numberRow; i++)
+            adjNode[i].clear();
+        //free(adjNode);
+        //free(isVisited);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 }
